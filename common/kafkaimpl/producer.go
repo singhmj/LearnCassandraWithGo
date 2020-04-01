@@ -15,11 +15,10 @@ type ProducerImpl struct {
 	context  context.Context
 }
 
-func CreateNewProducer(address []string, groupID string /* config *kafkaConfig*/) *ProducerImpl {
+func CreateNewProducer(address []string /* config *kafkaConfig*/) *ProducerImpl {
 	producerImpl := &ProducerImpl{
 		Config:  sarama.NewConfig(),
 		Address: address,
-		GroupID: groupID,
 	}
 
 	producer, err := sarama.NewAsyncProducer(producerImpl.Address, producerImpl.Config)

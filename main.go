@@ -6,9 +6,10 @@ create index on blog.post(date);
 package main
 
 import (
-	db "common/db"
-	kafkaHelper "common/kafkaimpl"
 	"fmt"
+
+	db "./common/db"
+	kafkaHelper "./common/kafkaimpl"
 )
 
 func WaitTillAllDone(waitChannel <-chan interface{}) {
@@ -22,22 +23,28 @@ func WaitTillAllDone(waitChannel <-chan interface{}) {
 	}
 }
 
+const (
+	BrokerAddress      = "127.0.0.1:9095"
+	DBAddress          = "127.0.0.1"
+	DBKeySpace         = "Blog"
+	ConsumerGroupID    = "FakeEventConsumerGroup"
+	TopicsForConsumers = "FAKE_BLOGS_EVENTS"
+)
+
 func main() {
 	// connect to the cluster
-	dbHelper := db.CreateNewDBHelper("127.0.0.1", "Blog")
-	consumer := kafkaHelper.CreateANewConsumer("127.0.0.1", "8765")
-	producer := kafkaHelper.CreateANewProducer("127.0.0.1", "8765")
+	dbHelper := db.CreateNewDBHelper(DBAddress, DBKeySpace)
+	consumer := kafkaHelper.CreateNewConsumer([]string{BrokerAddress}, ConsumerGroupID, []string{TopicsForConsumers})
+	producer := kafkaHelper.CreateNewProducer([]string{BrokerAddress})
 	waitChannel := make(chan interface{})
 
-	dbHelper.Connect()
-	consumer.Start()
-	producer.Start()
+	dbHelper.Connect(5)
 
 	eventsPublisher := CreateBlogEventsPublisher(producer)
-	eventsReceiver := CreateBlogEventsReceiver(consumer)
+	// eventsReceiver := CreateBlogEventsReceiver(consumer)
 
 	go eventsPublisher.PublishFakeEvents(waitChannel)
-	go eventsReceiver.ReceiveFakeEvents(waitChannel)
+	// go eventsReceiver.ReceiveFakeEvents(waitChannel)
 	// listen to system signals, and shutdown the system accordingly
 
 	WaitTillAllDone(waitChannel)

@@ -1,20 +1,22 @@
 package main
 
 import (
-	"common/kafkaImpl"
 	"fmt"
+	"time"
+
+	"./common/kafkaimpl"
 
 	"github.com/Shopify/sarama"
 )
 
 type BlogEventsReceiver struct {
 	sarama.ConsumerGroupHandler
-	Receiver *kafkaImpl.ConsumerImpl
+	Receiver *kafkaimpl.ConsumerImpl
 }
 
-func CreateBlogEventsReceiver(receiver *kafkaImpl.ConsumerImpl) *BlogEventsReceiver {
+func CreateBlogEventsReceiver(receiver *kafkaimpl.ConsumerImpl) *BlogEventsReceiver {
 	blogEvents := &BlogEventsReceiver{
-		Receiver : receiver
+		Receiver: receiver,
 	}
 	return blogEvents
 }
