@@ -30,14 +30,14 @@ func (helper *Helper) GetSessionFromPool() (*gocql.Session, error) {
 		if err != nil {
 			return nil, err
 		}
-		helper.sessions = append(session, helper.sessions)
+		helper.sessions = append(helper.sessions, session)
 	}
 
 	session := helper.sessions[len(helper.sessions)-1:][0]
 	return session, nil
 }
 
-func (helper *Helper) ReturnSessionToPool(session) error {
+func (helper *Helper) ReturnSessionToPool(session *gocql.Session) {
 	helper.sessions = append(helper.sessions, session)
 }
 

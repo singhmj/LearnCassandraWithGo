@@ -27,16 +27,19 @@ func main() {
 	dbHelper := db.CreateNewDBHelper("127.0.0.1", "Blog")
 	consumer := kafkaHelper.CreateANewConsumer("127.0.0.1", "8765")
 	producer := kafkaHelper.CreateANewProducer("127.0.0.1", "8765")
-
-	fakeBlogsChannel := make(chan string)
 	waitChannel := make(chan interface{})
 
 	dbHelper.Connect()
 	consumer.Start()
 	producer.Start()
 
-	go producer.produceFakeBlogPosts(fakeBlogsChannel, waitChannel)
-	go consumer.consumeFakeBlogPosts(fakeBlogsChannel, waitChannel)
+	eventsPublisher := CreateBlogEventsPublisher(producer)
+	eventsReceiver := CreateBlogEventsReceiver(consumer)
+
+	go eventsPublisher.PublishFakeEvents(waitChannel)
+	go eventsReceiver.ReceiveFakeEvents(waitChannel)
+	// listen to system signals, and shutdown the system accordingly
+
 	WaitTillAllDone(waitChannel)
 
 	defer func() {
