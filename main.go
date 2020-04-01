@@ -6,34 +6,59 @@ create index on blog.post(date);
 package main
 
 import (
+	db "common/db"
+	kafkaHelper "common/kafkaimpl"
 	"fmt"
-	"log"
-
-	"github.com/gocql/gocql"
 )
+
+func WaitTillAllDone(waitChannel <-chan interface{}) {
+	count := 0
+	for signal := range waitChannel {
+		fmt.Printf("Received a signal on WaitChannel. More info: %v", signal)
+		count++
+		if count >= 2 {
+			break
+		}
+	}
+}
 
 func main() {
 	// connect to the cluster
-	cluster := gocql.NewCluster("127.0.0.1")
-	cluster.Keyspace = "blog"
-	cluster.Consistency = gocql.Quorum
-	session, _ := cluster.CreateSession()
-	defer session.Close()
+	dbHelper := db.CreateNewDBHelper("127.0.0.1", "Blog")
+	consumer := kafkaHelper.CreateANewConsumer("127.0.0.1", "8765")
+	producer := kafkaHelper.CreateANewProducer("127.0.0.1", "8765")
 
-	// insert a blog post
-	if err := session.Query(`INSERT INTO post (date, id, author, body) VALUES (?, ?, ?, ?)`,
-		"2020-03-31 04:05+0000", gocql.TimeUUID(), "Manjinder", "Hi! This is a sample body.").Exec(); err != nil {
-		log.Fatal(err)
-	}
+	fakeBlogsChannel := make(chan string)
+	waitChannel := make(chan interface{})
 
-	var id gocql.UUID
-	var date string
-	var body string
-	var author string
+	dbHelper.Connect()
+	consumer.Start()
+	producer.Start()
 
-	if err := session.Query(`SELECT date, id, author, body FROM post WHERE date = ? LIMIT 1`,
-		"2020-03-31 04:05+0000").Consistency(gocql.One).Scan(&date, &id, &author, &body); err != nil {
-		log.Fatal(err)
-	}
-	fmt.Printf("Author: %v, Body: %v", author, body)
+	go producer.produceFakeBlogPosts(fakeBlogsChannel, waitChannel)
+	go consumer.consumeFakeBlogPosts(fakeBlogsChannel, waitChannel)
+	WaitTillAllDone(waitChannel)
+
+	defer func() {
+		producer.Stop()
+		consumer.Stop()
+		dbHelper.Disconnect()
+	}()
+
+	// // insert a blog post
+	// if err := session.Query(`INSERT INTO post (date, id, author, body) VALUES (?, ?, ?, ?)`,
+	// 	"2020-03-31 04:05+0000", gocql.TimeUUID(), "Manjinder", "Hi! This is a sample body.").Exec(); err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// var id gocql.UUID
+	// var date string
+	// var body string
+	// var author string
+
+	// if err := session.Query(`SELECT date, id, author, body FROM post WHERE date = ? LIMIT 1`,
+	// 	"2020-03-31 04:05+0000").Consistency(gocql.One).Scan(&date, &id, &author, &body); err != nil {
+	// 	log.Fatal(err)
+	// }
+	// fmt.Printf("Author: %v, Body: %v", author, body)
 }
