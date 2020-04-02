@@ -2,6 +2,7 @@ package main
 
 import (
 	// "encoding/json"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -43,10 +44,19 @@ func (BlogEventsReceiver) Cleanup(session sarama.ConsumerGroupSession) error {
 	return nil
 }
 
-func (b BlogEventsReceiver) OnNewBlogEvent(msg *sarama.ConsumerMessage) {
-	// TODO:
-	// umarshal this message
-	// and save the event in database
+func (b BlogEventsReceiver) OnNewBlogEvent(msg *sarama.ConsumerMessage) error {
+	fmt.Println("Received a new blog event. Processing it...")
+	var blogEvent BlogEvent
+	err := json.Unmarshal(msg.Value, &blogEvent)
+	if err != nil {
+		fmt.Printf("An error encountered while unmarshalling a blog event received on topic: %v, partition: %v, and offset: %v. More info: %v", msg.Topic, msg.Partition, msg.Offset, err)
+		return err
+	} else {
+		fmt.Println("The new received blog event message is: ", blogEvent)
+		// and save the event in database
+		// and commit offset
+		return nil
+	}
 }
 
 func (b BlogEventsReceiver) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
@@ -55,10 +65,11 @@ func (b BlogEventsReceiver) ConsumeClaim(session sarama.ConsumerGroupSession, cl
 	for {
 		select {
 		case cMsg := <-claim.Messages():
-			fmt.Printf("Received claim message: %v", cMsg)
-			b.OnNewBlogEvent(cMsg)
-			// do something
-			session.MarkMessage(cMsg, "")
+			fmt.Printf("Received a new message. on topic: %v, partition: %v, and offset: %v \n", cMsg.Topic, cMsg.Partition, cMsg.Offset)
+			if err := b.OnNewBlogEvent(cMsg); err != nil {
+				// commit offset on kafka
+				session.MarkMessage(cMsg, "")
+			}
 		case <-session.Context().Done():
 			fmt.Printf("Received context done")
 			return nil

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -20,11 +21,12 @@ func CreateBlogEventsPublisher(producer *kafkaimpl.ProducerImpl) *BlogEventsPubl
 
 func (blogEvents *BlogEventsPublisher) PublishFakeEvents(waitChannel chan<- interface{}) {
 	for i := 0; i < 1000; i++ {
-		fmt.Println("Producing blog events on MessageQueue")
+		fakeEvent := GenerateFakeBlogEvent()
+		eventInJSON, _ := json.Marshal(fakeEvent)
 		blogEvents.Producer.Produce(
 			TopicToProduceFakeEventsOn,
-			"123",
-			"{'uid':123, 'author':'TheNaiveProgrammer', 'title': 'How Not To Write A Wrapper Class?', 'body': 'Pending till the class is written completely' }",
+			fakeEvent.BlogID,
+			string(eventInJSON),
 		)
 		time.Sleep(1 * time.Second)
 
