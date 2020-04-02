@@ -1,6 +1,7 @@
 package main
 
 import (
+	// "encoding/json"
 	"fmt"
 	"time"
 
@@ -10,37 +11,57 @@ import (
 )
 
 type BlogEventsReceiver struct {
-	sarama.ConsumerGroupHandler
-	Receiver *kafkaimpl.ConsumerImpl
 }
 
-func CreateBlogEventsReceiver(receiver *kafkaimpl.ConsumerImpl) *BlogEventsReceiver {
+func CreateBlogEventsReceiver() *BlogEventsReceiver {
 	blogEvents := &BlogEventsReceiver{
-		Receiver: receiver,
+		// Receiver: receiver,
 	}
 	return blogEvents
 }
 
-func (blogEvents *BlogEventsReceiver) ReceiveFakeEvents() {
+func (blogEvents *BlogEventsReceiver) ReceiveFakeEvents(consumer *kafkaimpl.ConsumerImpl, waitChannel <-chan interface{}) {
 	for {
-		blogEvents.Receiver.Consume()
-		time.Sleep(1000)
+		fmt.Printf("Started consuming...")
+		err := consumer.Consume()
+		if err != nil {
+			fmt.Printf("An error received in consume method: %v", err)
+		} else {
+			fmt.Printf("A blog event has been received")
+		}
+		time.Sleep(1 * time.Second)
 	}
 }
 
-func (BlogEventsReceiver) Setup(session *sarama.ConsumerGroupSession) error {
-	fmt.Println("BLOG EVENTS RECEIVER SETUP CALLED")
+func (BlogEventsReceiver) Setup(session sarama.ConsumerGroupSession) error {
+	fmt.Println("BLOG EVENTS REBALANCE SETUP CALLBACK RECEIVED More info: %v", session)
 	return nil
 }
 
-func (BlogEventsReceiver) Cleanup(session *sarama.ConsumerGroupSession) error {
-	fmt.Println("BLOG EVENTS RECEIVER CLEANUP CALLED")
+func (BlogEventsReceiver) Cleanup(session sarama.ConsumerGroupSession) error {
+	fmt.Println("BLOG EVENTS SESSION CLEANUP CALLBACK RECEIVED. More info: %v", session)
 	return nil
 }
 
-func (BlogEventsReceiver) ConsumeClaim(session *sarama.ConsumerGroupSession, claim *sarama.ConsumerGroupClaim) error {
+func (b BlogEventsReceiver) OnNewBlogEvent(msg *sarama.ConsumerMessage) {
+	// TODO:
+	// umarshal this message
+	// and save the event in database
+}
+
+func (b BlogEventsReceiver) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	fmt.Println("BLOG EVENTS RECEIVER CONSUMER CLAIM CALLED")
-
-	// add database calls here, later on think of moving it somewhere outside
-	return nil
+	// var msg SyncMessage
+	for {
+		select {
+		case cMsg := <-claim.Messages():
+			fmt.Printf("Received claim message: %v", cMsg)
+			b.OnNewBlogEvent(cMsg)
+			// do something
+			session.MarkMessage(cMsg, "")
+		case <-session.Context().Done():
+			fmt.Printf("Received context done")
+			return nil
+		}
+	}
 }

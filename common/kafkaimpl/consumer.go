@@ -2,6 +2,7 @@ package kafkaimpl
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/Shopify/sarama"
@@ -10,7 +11,7 @@ import (
 type ConsumerImpl struct {
 	Config               *sarama.Config
 	ConsumerGroup        *sarama.ConsumerGroup
-	ConsumerGroupHandler *sarama.ConsumerGroupHandler
+	ConsumerGroupHandler sarama.ConsumerGroupHandler
 	Address              []string
 	GroupID              string
 	topics               []string
@@ -24,6 +25,8 @@ func CreateNewConsumer(address []string, groupID string, topics []string /* conf
 		Address: address,
 	}
 
+	consumer.Config.Version = sarama.V0_11_0_2
+	consumer.Config.Consumer.Return.Errors = true
 	for _, topic := range topics {
 		consumer.AddTopic(topic)
 	}
@@ -45,14 +48,20 @@ func (consumer *ConsumerImpl) AddTopic(topic string) {
 	consumer.topics = append(consumer.topics, topic)
 }
 
-func (consumer *ConsumerImpl) AddConsumerGroupHandler(handler *sarama.ConsumerGroupHandler) {
+func (consumer *ConsumerImpl) RegisterConsumerGroupHandler(handler sarama.ConsumerGroupHandler) {
 	consumer.ConsumerGroupHandler = handler
 }
 
 func (consumer *ConsumerImpl) Consume() error {
-	return (*consumer.ConsumerGroup).Consume(consumer.context, consumer.topics, *consumer.ConsumerGroupHandler)
+	return (*consumer.ConsumerGroup).Consume(consumer.context, consumer.topics, consumer.ConsumerGroupHandler)
 }
 
 func (consumer *ConsumerImpl) Stop() {
 	(*consumer.ConsumerGroup).Close()
+}
+
+func (consumer *ConsumerImpl) SubscribeToErrors() {
+	for err := range (*consumer.ConsumerGroup).Errors() {
+		fmt.Printf("an error received in consumer. More info: %v", err)
+	}
 }

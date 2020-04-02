@@ -13,40 +13,37 @@ import (
 )
 
 func WaitTillAllDone(waitChannel <-chan interface{}) {
-	count := 0
+	// count := 0
 	for signal := range waitChannel {
 		fmt.Printf("Received a signal on WaitChannel. More info: %v", signal)
-		count++
-		if count >= 2 {
-			break
-		}
+		break
+		// count++
+		// if count >= 2 {
+		// 	break
+		// }
 	}
 }
-
-const (
-	BrokerAddress      = "127.0.0.1:9095"
-	DBAddress          = "127.0.0.1"
-	DBKeySpace         = "Blog"
-	ConsumerGroupID    = "FakeEventConsumerGroup"
-	TopicsForConsumers = "FAKE_BLOGS_EVENTS"
-)
 
 func main() {
 	// connect to the cluster
 	dbHelper := db.CreateNewDBHelper(DBAddress, DBKeySpace)
 	consumer := kafkaHelper.CreateNewConsumer([]string{BrokerAddress}, ConsumerGroupID, []string{TopicsForConsumers})
 	producer := kafkaHelper.CreateNewProducer([]string{BrokerAddress})
+	go consumer.SubscribeToErrors()
+	go producer.SubscribeErrors()
 	waitChannel := make(chan interface{})
 
-	dbHelper.Connect(5)
+	dbHelper.Connect(DBPoolSize)
 
 	eventsPublisher := CreateBlogEventsPublisher(producer)
-	// eventsReceiver := CreateBlogEventsReceiver(consumer)
+	eventsReceiver := CreateBlogEventsReceiver()
+
+	consumer.RegisterConsumerGroupHandler(eventsReceiver)
 
 	go eventsPublisher.PublishFakeEvents(waitChannel)
-	// go eventsReceiver.ReceiveFakeEvents(waitChannel)
-	// listen to system signals, and shutdown the system accordingly
+	go eventsReceiver.ReceiveFakeEvents(consumer, waitChannel)
 
+	// TODO: listen to system signals, and shutdown the system accordingly
 	WaitTillAllDone(waitChannel)
 
 	defer func() {
