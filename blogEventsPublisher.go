@@ -27,8 +27,8 @@ func (blogEvents *BlogEventsPublisher) PublishFakeEvents(waitChannel chan<- inte
 		eventInJSON, _ := json.Marshal(fakeEvent)
 		blogEvents.Producer.Produce(
 			TopicToProduceFakeEventsOn,
-			fakeEvent.BlogID,
-			string(eventInJSON),
+			[]byte(fakeEvent.BlogID),
+			eventInJSON,
 		)
 		time.Sleep(1 * time.Second)
 

@@ -2,6 +2,7 @@ package db
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/gocql/gocql"
 )
@@ -9,6 +10,7 @@ import (
 type Helper struct {
 	cluster  *gocql.ClusterConfig
 	sessions []*gocql.Session
+	poolLock sync.Mutex
 }
 
 func CreateNewDBHelper(ip string, keyspace string /*Consistency*/) *Helper {
@@ -25,6 +27,8 @@ func (helper *Helper) Init(ip string, keyspace string) {
 
 // TODO: Add logic to fetch from pool
 func (helper *Helper) GetSessionFromPool() (*gocql.Session, error) {
+	helper.poolLock.Lock()
+
 	if len(helper.sessions) == 0 {
 		session, err := helper.createANewSession()
 		if err != nil {
@@ -33,12 +37,15 @@ func (helper *Helper) GetSessionFromPool() (*gocql.Session, error) {
 		helper.sessions = append(helper.sessions, session)
 	}
 
-	session := helper.sessions[len(helper.sessions)-1:][0]
+	session := helper.sessions[len(helper.sessions)-1]
+	defer func() { helper.poolLock.Unlock() }()
 	return session, nil
 }
 
 func (helper *Helper) ReturnSessionToPool(session *gocql.Session) {
+	helper.poolLock.Lock()
 	helper.sessions = append(helper.sessions, session)
+	defer func() { helper.poolLock.Unlock() }()
 }
 
 func (helper *Helper) Connect(poolSize uint8) error {

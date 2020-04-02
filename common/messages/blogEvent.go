@@ -41,7 +41,7 @@ func GenerateFakeBlogPost() *BlogPost {
 		fmt.Println("An error occured while generating fake blog post")
 		return nil
 	}
-	fmt.Println("Generated fake post: %v", post)
+	fmt.Println("Generated fake post: ", post)
 	return post
 }
 

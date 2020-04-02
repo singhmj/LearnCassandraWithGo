@@ -33,7 +33,7 @@ func (producerImpl *ProducerImpl) SubscribeErrors() <-chan *sarama.ProducerError
 	return (*producerImpl.Producer).Errors()
 }
 
-func (producerImpl *ProducerImpl) Produce(topic string, key string, value string) {
+func (producerImpl *ProducerImpl) Produce(topic string, key []byte, value []byte) {
 	message := &sarama.ProducerMessage{
 		Topic: topic,
 		Key:   sarama.StringEncoder(key),

@@ -114,6 +114,20 @@ func (b BlogEventsReceiver) onNewMessage(msg *sarama.ConsumerMessage) error {
 				// and save the event in database
 				err = b.onNewBlogComment()
 			}
+
+		default:
+			{
+				{
+					// unmarshal the message
+					var blogPost messages.BlogPost
+					err = json.Unmarshal(msg.Value, &blogPost)
+					if err != nil {
+						fmt.Printf("An error encountered while unmarshalling a blog event received on topic: %v, partition: %v, and offset: %v. More info: %v", msg.Topic, msg.Partition, msg.Offset, err)
+					} else {
+						err = b.onNewBlogPost(&blogPost)
+					}
+				}
+			}
 		}
 	}
 
