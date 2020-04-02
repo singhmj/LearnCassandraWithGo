@@ -25,6 +25,11 @@ func (helper *Helper) Init(ip string, keyspace string) {
 	helper.cluster.Consistency = gocql.Quorum
 }
 
+// TODO: This just directly returns a session
+func (helper *Helper) GetSession() (*gocql.Session, error) {
+	return helper.createANewSession()
+}
+
 // TODO: Add logic to fetch from pool
 func (helper *Helper) GetSessionFromPool() (*gocql.Session, error) {
 	helper.poolLock.Lock()
