@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"./common/messages"
+
 	"./common/kafkaimpl"
 )
 
@@ -21,7 +23,7 @@ func CreateBlogEventsPublisher(producer *kafkaimpl.ProducerImpl) *BlogEventsPubl
 
 func (blogEvents *BlogEventsPublisher) PublishFakeEvents(waitChannel chan<- interface{}) {
 	for i := 0; i < 1000; i++ {
-		fakeEvent := GenerateFakeBlogEvent()
+		fakeEvent := messages.GenerateFakeBlogPost()
 		eventInJSON, _ := json.Marshal(fakeEvent)
 		blogEvents.Producer.Produce(
 			TopicToProduceFakeEventsOn,
