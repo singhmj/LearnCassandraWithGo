@@ -93,7 +93,7 @@ func (b BlogEventsReceiver) onNewMessage(msg *sarama.ConsumerMessage) error {
 	var header messages.Header
 	err := json.Unmarshal(msg.Value, &header)
 	if err != nil {
-		fmt.Printf("An error encountered while unmarshalling a message header received on topic: %v, partition: %v, and offset: %v. More info: %v", msg.Topic, msg.Partition, msg.Offset, err)
+		fmt.Printf("An error encountered while unmarshalling a message header received on topic: %s, partition: %s, and offset: %s. More info: %s", msg.Topic, msg.Partition, msg.Offset, err)
 	} else {
 		fmt.Println("Message Header: ", header)
 		switch header.MessageType {

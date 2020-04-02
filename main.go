@@ -1,7 +1,9 @@
 /* Before you execute the program, Launch `cqlsh` and execute:
+drop keyspace Blog;
 create keyspace Blog with replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
-create table blog.post(date text, id UUID, author text, body text, PRIMARY KEY(id));
-create index on blog.post(date);
+create table blog.post(blogID text, authorId text, authorName text, title text, body text, conclusion text, publishedAt text, PRIMARY KEY(blogID));
+create index on blog.post(publishedAt);
+ -- @don't use this one; create table blog.post(date text, id UUID, author text, body text, PRIMARY KEY(id));
 */
 package main
 
