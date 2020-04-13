@@ -32,6 +32,7 @@ func (selfObject *StandardPool) Init(ip string, keyspace string) {
 			// if the the requried number of connections have already been allocated
 			// then don't created any new connection
 			// this behaviour is required where connections should be made in restrictive manner
+			fmt.Printf("Creating a new session in the pool. Total ConnectionsAllocated: %v, ConnectionsToAllocate: %v", selfObject.connectionsAllocated, selfObject.connectionsToAllocate)
 			if selfObject.connectionsAllocated > selfObject.connectionsToAllocate {
 				return nil
 			}

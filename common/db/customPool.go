@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -11,7 +12,7 @@ import (
 type CustomPool struct {
 	cluster  *gocql.ClusterConfig
 	sessions []*gocql.Session
-	poolLock sync.Mutex
+	poolLock *sync.Mutex
 }
 
 // Init :
@@ -19,6 +20,7 @@ func (helper *CustomPool) Init(ip string, keyspace string) {
 	helper.cluster = gocql.NewCluster(ip) // "127.0.0.1"
 	helper.cluster.Keyspace = keyspace
 	helper.cluster.Consistency = gocql.Quorum
+	helper.poolLock = &sync.Mutex{}
 }
 
 // GetNewSession :
@@ -28,7 +30,12 @@ func (helper *CustomPool) GetNewSession() (*gocql.Session, error) {
 
 // GetSessionFromPool :
 func (helper *CustomPool) GetSessionFromPool() (*gocql.Session, error) {
+	if helper.poolLock == nil {
+		fmt.Println("The pool lock is an empty object")
+		return nil, errors.New("jasdjasnjd")
+	}
 	helper.poolLock.Lock()
+	defer helper.poolLock.Unlock()
 
 	if len(helper.sessions) == 0 {
 		fmt.Println("Pool doesn't have any sessions in it. Going to create a new session in the pool.")
@@ -41,15 +48,14 @@ func (helper *CustomPool) GetSessionFromPool() (*gocql.Session, error) {
 
 	session, sessions := helper.sessions[len(helper.sessions)-1], helper.sessions[:len(helper.sessions)-1]
 	helper.sessions = sessions
-	defer func() { helper.poolLock.Unlock() }()
 	return session, nil
 }
 
 // ReturnSessionToPool :
 func (helper *CustomPool) ReturnSessionToPool(session *gocql.Session) {
 	helper.poolLock.Lock()
+	defer helper.poolLock.Unlock()
 	helper.sessions = append(helper.sessions, session)
-	defer func() { helper.poolLock.Unlock() }()
 }
 
 // Connect :

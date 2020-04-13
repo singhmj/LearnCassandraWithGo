@@ -9,10 +9,6 @@ import (
 	"github.com/gocql/gocql"
 )
 
-var customPool *CustomPool
-var standardPool *StandardPool
-var session *gocql.Session
-
 // create table blog.query_counter(counter int, PRIMARY KEY(counter));
 func cleanTable(session *gocql.Session) {
 	err := session.Query("TRUNCATE blog.query_counter").Exec()
@@ -21,36 +17,28 @@ func cleanTable(session *gocql.Session) {
 	}
 }
 
-func InitCustomPool(ip string, keyspace string) {
-	customPool = CreatePool("custom", ip, keyspace).(*CustomPool)
-	err := customPool.Connect(100)
-	if err != nil {
-		log.Fatal("Failed to connect to sessions. Moreinfo: ", err)
-	}
+func InitCustomPool(ip string, keyspace string) *CustomPool {
+	return CreatePool("custom", 10, ip, keyspace).(*CustomPool)
 }
 
-func InitStandardPool(ip string, keyspace string) {
-	standardPool = CreatePool("standard", ip, keyspace).(*StandardPool)
-	err := standardPool.Connect(100)
-	if err != nil {
-		log.Fatal("Failed to connect to sessions. Moreinfo: ", err)
-	}
+func InitStandardPool(ip string, keyspace string) *StandardPool {
+	return CreatePool("standard", 10, ip, keyspace).(*StandardPool)
 }
 
-func InitConnection(ip string, keyspace string) {
+func InitConnection(ip string, keyspace string) *gocql.Session {
 	cluster := gocql.NewCluster(ip) // "127.0.0.1"
 	cluster.Keyspace = keyspace
 	cluster.Consistency = gocql.Quorum
-	localSession, err := cluster.CreateSession()
+	session, err := cluster.CreateSession()
 	if err != nil {
 		log.Fatalf("Failed to create the session. More info: %v", err)
 	}
 
-	session = localSession
+	return session
 }
 
 func BenchmarkSingularConnectionInSerializedSystem(b *testing.B) {
-	InitConnection("127.0.0.1", "blog")
+	session := InitConnection("127.0.0.1", "blog")
 	cleanTable(session)
 
 	b.StartTimer()
@@ -67,7 +55,8 @@ func BenchmarkSingularConnectionInSerializedSystem(b *testing.B) {
 }
 
 func BenchmarkGetObjectFromStandardPoolInSerializedSystem(b *testing.B) {
-	InitCustomPool("127.0.0.1", "blog")
+	standardPool := InitStandardPool("127.0.0.1", "blog")
+	defer standardPool.Disconnect()
 	session, _ := standardPool.GetSessionFromPool()
 	cleanTable(session)
 	standardPool.ReturnSessionToPool(session)
@@ -89,7 +78,8 @@ func BenchmarkGetObjectFromStandardPoolInSerializedSystem(b *testing.B) {
 }
 
 func BenchmarkGetObjectFromCustomPoolInSerializedSystem(b *testing.B) {
-	InitStandardPool("127.0.0.1", "blog")
+	customPool := InitCustomPool("127.0.0.1", "blog")
+	defer customPool.Disconnect()
 	session, _ := customPool.GetSessionFromPool()
 	cleanTable(session)
 	customPool.ReturnSessionToPool(session)
@@ -117,7 +107,8 @@ func BenchmarkGetObjectFromCustomPoolInSerializedSystem(b *testing.B) {
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 func BenchmarkSingularConnectionInConcurrentSystem(b *testing.B) {
-	InitConnection("127.0.0.1", "blog")
+	session := InitConnection("127.0.0.1", "blog")
+	defer session.Close()
 	cleanTable(session)
 
 	var wg sync.WaitGroup
@@ -142,17 +133,18 @@ func BenchmarkSingularConnectionInConcurrentSystem(b *testing.B) {
 }
 
 func BenchmarkGetObjectFromStandardPoolInConcurrentSystem(b *testing.B) {
-	InitStandardPool("127.0.0.1", "blog")
-	session, _ := customPool.GetSessionFromPool()
+	standardPool := InitStandardPool("127.0.0.1", "blog")
+	defer standardPool.Disconnect()
+	session, _ := standardPool.GetSessionFromPool()
 	cleanTable(session)
-	customPool.ReturnSessionToPool(session)
+	standardPool.ReturnSessionToPool(session)
 
 	var wg sync.WaitGroup
 
 	b.StartTimer()
 	// start benchmarking timer
 	for i := 0; i < b.N; i++ {
-		session, err := customPool.GetSessionFromPool()
+		session, err := standardPool.GetSessionFromPool()
 		if err != nil {
 			log.Fatal("Could not extract session from database")
 		}
@@ -161,7 +153,7 @@ func BenchmarkGetObjectFromStandardPoolInConcurrentSystem(b *testing.B) {
 			if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
 				log.Fatal(err)
 			}
-			customPool.ReturnSessionToPool(session)
+			standardPool.ReturnSessionToPool(session)
 			defer wg.Done()
 		}()
 	}
@@ -172,7 +164,8 @@ func BenchmarkGetObjectFromStandardPoolInConcurrentSystem(b *testing.B) {
 }
 
 func BenchmarkGetObjectFromCustomPoolInConcurrentSystem(b *testing.B) {
-	InitCustomPool("127.0.0.1", "blog")
+	customPool := InitCustomPool("127.0.0.1", "blog")
+	defer customPool.Disconnect()
 	session, _ := customPool.GetSessionFromPool()
 	cleanTable(session)
 	customPool.ReturnSessionToPool(session)
