@@ -42,13 +42,13 @@ func (b *BlogEventsReceiver) ReceiveFakeEvents(consumer *kafkaimpl.ConsumerImpl,
 
 // Setup :
 func (BlogEventsReceiver) Setup(session sarama.ConsumerGroupSession) error {
-	fmt.Println("BLOG EVENTS REBALANCE SETUP CALLBACK RECEIVED More info: %v", session)
+	fmt.Printf("BLOG EVENTS REBALANCE SETUP CALLBACK RECEIVED More info: %v", session)
 	return nil
 }
 
 // Cleanup :
 func (BlogEventsReceiver) Cleanup(session sarama.ConsumerGroupSession) error {
-	fmt.Println("BLOG EVENTS SESSION CLEANUP CALLBACK RECEIVED. More info: %v", session)
+	fmt.Printf("BLOG EVENTS SESSION CLEANUP CALLBACK RECEIVED. More info: %v", session)
 	return nil
 }
 
@@ -74,7 +74,7 @@ func (b BlogEventsReceiver) ConsumeClaim(session sarama.ConsumerGroupSession, cl
 // onNewBlogPost :
 func (b BlogEventsReceiver) onNewBlogPost(post *messages.BlogPost) error {
 	fmt.Println("Received a new blog event. Processing it...")
-	dbSession, err := b.DbHelper.GetSession()
+	dbSession, err := b.DbHelper.GetNewSession()
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (b BlogEventsReceiver) onNewMessage(msg *sarama.ConsumerMessage) error {
 	var header messages.Header
 	err := json.Unmarshal(msg.Value, &header)
 	if err != nil {
-		fmt.Printf("An error encountered while unmarshalling a message header received on topic: %s, partition: %s, and offset: %s. More info: %s", msg.Topic, msg.Partition, msg.Offset, err)
+		fmt.Printf("An error encountered while unmarshalling a message header received on topic: %s, partition: %d, and offset: %d. More info: %s", msg.Topic, msg.Partition, msg.Offset, err)
 	} else {
 		fmt.Println("Message Header: ", header)
 		switch header.MessageType {
