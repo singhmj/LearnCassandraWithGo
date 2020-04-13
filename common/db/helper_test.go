@@ -98,7 +98,7 @@ func BenchmarkGetObjectFromPoolInConcurrentSystem(b *testing.B) {
 				log.Fatal(err)
 			}
 			pool.ReturnSessionToPool(session)
-			wg.Done()
+			defer wg.Done()
 		}()
 	}
 
@@ -124,7 +124,7 @@ func BenchmarkSingularConnectionInConcurrentSystem(b *testing.B) {
 			}
 			// fmt.Println("New session: ", individualSession)
 			// unlock after using the session
-			wg.Done()
+			defer wg.Done()
 		}()
 	}
 
