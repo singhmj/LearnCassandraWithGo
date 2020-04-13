@@ -14,11 +14,11 @@ import (
 )
 
 type BlogEventsReceiver struct {
-	DbHelper *db.Helper
+	DbHelper *db.CustomPool
 }
 
 // CreateBlogEventsReceiver :
-func CreateBlogEventsReceiver(dbHelper *db.Helper) *BlogEventsReceiver {
+func CreateBlogEventsReceiver(dbHelper *db.CustomPool) *BlogEventsReceiver {
 	blogEvents := &BlogEventsReceiver{
 		// Receiver: receiver,
 		DbHelper: dbHelper,
