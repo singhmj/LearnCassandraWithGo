@@ -40,7 +40,7 @@ func InitConnection(ip string, keyspace string) {
 	session = localSession
 }
 
-func BenchmarkGetObjectFromPoolInLinearSystem(b *testing.B) {
+func BenchmarkGetObjectFromPoolInSerializedSystem(b *testing.B) {
 	InitPool("127.0.0.1", "blog")
 	session, _ := pool.GetSessionFromPool()
 	cleanTable(session)
@@ -60,7 +60,7 @@ func BenchmarkGetObjectFromPoolInLinearSystem(b *testing.B) {
 	// end benchmarking timer
 }
 
-func BenchmarkSingularConnectionInLinearSystem(b *testing.B) {
+func BenchmarkSingularConnectionInSerializedSystem(b *testing.B) {
 	InitConnection("127.0.0.1", "blog")
 	cleanTable(session)
 
