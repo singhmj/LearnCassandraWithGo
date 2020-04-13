@@ -13,6 +13,7 @@ type Helper struct {
 	poolLock sync.Mutex
 }
 
+// This pool implementation isn't good, it keeps on creating new sessions if gets short of them
 func CreateNewDBHelper(ip string, keyspace string /*Consistency*/) *Helper {
 	helper := &Helper{}
 	helper.Init(ip, keyspace)
@@ -25,8 +26,8 @@ func (helper *Helper) Init(ip string, keyspace string) {
 	helper.cluster.Consistency = gocql.Quorum
 }
 
-// TODO: This just directly returns a session
-func (helper *Helper) GetSession() (*gocql.Session, error) {
+// TODO: This just directly returns a new session, and you are responsible to manage it
+func (helper *Helper) GetNewSession() (*gocql.Session, error) {
 	return helper.createANewSession()
 }
 
@@ -35,6 +36,7 @@ func (helper *Helper) GetSessionFromPool() (*gocql.Session, error) {
 	helper.poolLock.Lock()
 
 	if len(helper.sessions) == 0 {
+		fmt.Println("Pool doesn't have any sessions in it. Going to create a new session in the pool.")
 		session, err := helper.createANewSession()
 		if err != nil {
 			return nil, err
@@ -42,7 +44,8 @@ func (helper *Helper) GetSessionFromPool() (*gocql.Session, error) {
 		helper.sessions = append(helper.sessions, session)
 	}
 
-	session := helper.sessions[len(helper.sessions)-1]
+	session, sessions := helper.sessions[len(helper.sessions)-1], helper.sessions[:len(helper.sessions)-1]
+	helper.sessions = sessions
 	defer func() { helper.poolLock.Unlock() }()
 	return session, nil
 }
@@ -66,6 +69,8 @@ func (helper *Helper) Connect(poolSize uint8) error {
 	return nil
 }
 
+// make sure that you return all of the sessions back to pool
+// before calling this func
 func (helper *Helper) Disconnect() {
 	for _, session := range helper.sessions {
 		session.Close()
