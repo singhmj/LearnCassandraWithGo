@@ -24,7 +24,7 @@ func WaitTillAllDone(waitChannel <-chan interface{}) {
 
 func main() {
 	// connect to the cluster
-	dbHelper := db.CreatePool("custom", DBAddress, DBKeySpace).(*db.CustomPool)
+	dbHelper := db.CreatePool("custom", 100, DBAddress, DBKeySpace).(*db.CustomPool)
 	consumer := kafkaHelper.CreateNewConsumer([]string{BrokerAddress}, ConsumerGroupID, []string{TopicsForConsumers})
 	producer := kafkaHelper.CreateNewProducer([]string{BrokerAddress})
 	go consumer.SubscribeToErrors()

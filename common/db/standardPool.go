@@ -51,6 +51,7 @@ func (selfObject *StandardPool) Init(ip string, keyspace string) {
 
 // Connect :
 func (selfObject *StandardPool) Connect(poolSize int) error {
+	selfObject.connectionsToAllocate = poolSize
 	for i := 0; i < poolSize; i++ {
 		session := selfObject.sessionPool.New()
 		if session == nil {

@@ -53,9 +53,9 @@ func (helper *CustomPool) ReturnSessionToPool(session *gocql.Session) {
 }
 
 // Connect :
-func (helper *CustomPool) Connect(poolSize uint8) error {
+func (helper *CustomPool) Connect(poolSize int) error {
 	helper.sessions = make([]*gocql.Session, poolSize)
-	for i := uint8(0); i < poolSize; i++ {
+	for i := 0; i < poolSize; i++ {
 		session, err := CreateSession(helper.cluster)
 		if err != nil {
 			return err
