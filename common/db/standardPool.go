@@ -50,10 +50,16 @@ func (selfObject *StandardPool) Init(ip string, keyspace string) {
 }
 
 // Connect :
-func (selfObject *StandardPool) Connect(poolSize int) {
+func (selfObject *StandardPool) Connect(poolSize int) error {
 	for i := 0; i < poolSize; i++ {
-		selfObject.ReturnSessionToPool(selfObject.sessionPool.New().(*gocql.Session))
+		session := selfObject.sessionPool.New()
+		if session == nil {
+			return errors.New("Failed to create sessions in the pool")
+		}
+		selfObject.ReturnSessionToPool(session.(*gocql.Session))
 	}
+
+	return nil
 }
 
 // GetSessionFromPool :
@@ -74,7 +80,8 @@ func (selfObject *StandardPool) ReturnSessionToPool(session *gocql.Session) {
 func (selfObject *StandardPool) Disconnect() {
 	// get sessions from pool one by one
 	for i := 0; i < selfObject.connectionsAllocated; i++ {
-		selfObject.ReturnSessionToPool(selfObject.sessionPool.New().(*gocql.Session))
+		session := selfObject.sessionPool.Get()
+		selfObject.ReturnSessionToPool(session.(*gocql.Session))
 	}
 	// and call disconnect on them
 	// then return them back to the pool

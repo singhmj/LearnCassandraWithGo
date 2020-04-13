@@ -30,7 +30,7 @@ func InitCustomPool(ip string, keyspace string) {
 }
 
 func InitStandardPool(ip string, keyspace string) {
-	standardPool = CreatePool("custom", ip, keyspace).(*StandardPool)
+	standardPool = CreatePool("standard", ip, keyspace).(*StandardPool)
 	err := standardPool.Connect(100)
 	if err != nil {
 		log.Fatal("Failed to connect to sessions. Moreinfo: ", err)
