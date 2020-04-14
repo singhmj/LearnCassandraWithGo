@@ -20,84 +20,84 @@ type CustomPool struct {
 }
 
 // Init :
-func (helper *CustomPool) Init(ip string, keyspace string) {
-	helper.cluster = gocql.NewCluster(ip) // "127.0.0.1"
-	helper.cluster.Keyspace = keyspace
-	helper.cluster.Consistency = gocql.Quorum
-	helper.poolLock = &sync.Mutex{}
-	helper.connectionsAllocated = 0
-	helper.connectionsToAllocate = 0
+func (selfObject *CustomPool) Init(ip string, keyspace string) {
+	selfObject.cluster = gocql.NewCluster(ip) // "127.0.0.1"
+	selfObject.cluster.Keyspace = keyspace
+	selfObject.cluster.Consistency = gocql.Quorum
+	selfObject.poolLock = &sync.Mutex{}
+	selfObject.connectionsAllocated = 0
+	selfObject.connectionsToAllocate = 0
 }
 
 // IncreasePoolSize :
-func (helper *CustomPool) IncreasePoolSize(newPoolSize int) error {
-	helper.poolLock.Lock()
-	defer helper.poolLock.Unlock()
+func (selfObject *CustomPool) IncreasePoolSize(newPoolSize int) error {
+	selfObject.poolLock.Lock()
+	defer selfObject.poolLock.Unlock()
 
-	if newPoolSize < helper.connectionsAllocated {
+	if newPoolSize < selfObject.connectionsAllocated {
 		return errors.New("you cannot scale down the database pool")
 	}
-	helper.connectionsToAllocate++
+	selfObject.connectionsToAllocate++
 	return nil
 }
 
 // GetNewSession :
-func (helper *CustomPool) GetNewSession() (*gocql.Session, error) {
-	helper.poolLock.Lock()
-	defer helper.poolLock.Unlock()
-	return CreateSession(helper.cluster)
+func (selfObject *CustomPool) GetNewSession() (*gocql.Session, error) {
+	selfObject.poolLock.Lock()
+	defer selfObject.poolLock.Unlock()
+	return CreateSession(selfObject.cluster)
 }
 
 // GetSessionFromPool :
-func (helper *CustomPool) GetSessionFromPool() (*gocql.Session, error) {
-	helper.poolLock.Lock()
-	defer helper.poolLock.Unlock()
+func (selfObject *CustomPool) GetSessionFromPool() (*gocql.Session, error) {
+	selfObject.poolLock.Lock()
+	defer selfObject.poolLock.Unlock()
 
 	// since this path is protected by the lock, we can increment the value
-	if len(helper.sessions) == 0 {
+	if len(selfObject.sessions) == 0 {
 		// already have created the required number of sessions, and they all have been exhausted now
 		// can't proceed, either call IncreasePoolSize with requested params or
 		// better retry in some time
-		if helper.connectionsAllocated >= helper.connectionsToAllocate {
+		if selfObject.connectionsAllocated >= selfObject.connectionsToAllocate {
 			return nil, errors.New("Pool doesn't have any session to return")
 		}
 
 		fmt.Println("Pool doesn't have any sessions in it. Going to create a new session in the pool.")
-		session, err := CreateSession(helper.cluster)
+		session, err := CreateSession(selfObject.cluster)
 		if err != nil {
 			return nil, fmt.Errorf("failed to created a new session. more info: %v", err)
 		}
-		helper.sessions = append(helper.sessions, session)
-		helper.connectionsAllocated++
+		selfObject.sessions = append(selfObject.sessions, session)
+		selfObject.connectionsAllocated++
 	}
 
-	session, sessions := helper.sessions[len(helper.sessions)-1], helper.sessions[:len(helper.sessions)-1]
-	helper.sessions = sessions
-	helper.connectionsAllocated--
+	session, sessions := selfObject.sessions[len(selfObject.sessions)-1], selfObject.sessions[:len(selfObject.sessions)-1]
+	selfObject.sessions = sessions
+	selfObject.connectionsAllocated--
 	return session, nil
 }
 
 // ReturnSessionToPool :
-func (helper *CustomPool) ReturnSessionToPool(session *gocql.Session) {
-	helper.poolLock.Lock()
-	defer helper.poolLock.Unlock()
-	helper.sessions = append(helper.sessions, session)
-	helper.connectionsAllocated++
+func (selfObject *CustomPool) ReturnSessionToPool(session *gocql.Session) {
+	selfObject.poolLock.Lock()
+	defer selfObject.poolLock.Unlock()
+	selfObject.sessions = append(selfObject.sessions, session)
+	selfObject.connectionsAllocated++
 }
 
 // Connect :
-func (helper *CustomPool) Connect(poolSize int) error {
-	helper.poolLock.Lock()
-	defer helper.poolLock.Unlock()
-	helper.connectionsToAllocate = poolSize
-	helper.sessions = make([]*gocql.Session, poolSize)
+func (selfObject *CustomPool) Connect(poolSize int) error {
+	selfObject.poolLock.Lock()
+	defer selfObject.poolLock.Unlock()
+	selfObject.connectionsToAllocate = poolSize
+	selfObject.sessions = make([]*gocql.Session, poolSize)
 	for i := 0; i < poolSize; i++ {
-		session, err := CreateSession(helper.cluster)
+		session, err := CreateSession(selfObject.cluster)
 		if err != nil {
 			return err
 		}
-		helper.sessions = append(helper.sessions, session)
-		helper.connectionsAllocated--
+		selfObject.sessions = append(selfObject.sessions, session)
+		selfObject.connectionsAllocated--
 	}
 	return nil
 }
@@ -105,10 +105,10 @@ func (helper *CustomPool) Connect(poolSize int) error {
 // Disconnect :
 // make sure that you return all of the sessions back to pool
 // before calling this func
-func (helper *CustomPool) Disconnect() {
-	helper.poolLock.Lock()
-	defer helper.poolLock.Unlock()
-	for _, session := range helper.sessions {
+func (selfObject *CustomPool) Disconnect() {
+	selfObject.poolLock.Lock()
+	defer selfObject.poolLock.Unlock()
+	for _, session := range selfObject.sessions {
 		session.Close()
 	}
 }
