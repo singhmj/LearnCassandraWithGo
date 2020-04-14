@@ -50,6 +50,26 @@ func (selfObject *StandardPool) Init(ip string, keyspace string) {
 	}
 }
 
+// GetPoolSize :
+func (selfObject *StandardPool) GetPoolSize() int {
+	return selfObject.connectionsAllocated
+}
+
+// IncreasePoolSize :
+func (selfObject *StandardPool) IncreasePoolSize(newPoolSize int) error {
+	if newPoolSize < selfObject.connectionsAllocated {
+		return errors.New("you cannot scale down the database pool")
+	}
+	selfObject.connectionsToAllocate++
+	return nil
+}
+
+// GetSessionWithoutUsingPool :
+func (selfObject *StandardPool) GetSessionWithoutUsingPool() (*gocql.Session, error) {
+	// TODO: Add lock this lock has been acquired to protect cluster
+	return CreateSession(selfObject.cluster)
+}
+
 // Connect :
 func (selfObject *StandardPool) Connect(poolSize int) error {
 	selfObject.connectionsToAllocate = poolSize

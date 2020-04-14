@@ -74,7 +74,7 @@ func (b BlogEventsReceiver) ConsumeClaim(session sarama.ConsumerGroupSession, cl
 // onNewBlogPost :
 func (b BlogEventsReceiver) onNewBlogPost(post *messages.BlogPost) error {
 	fmt.Println("Received a new blog event. Processing it...")
-	dbSession, err := b.DbHelper.GetNewSession()
+	dbSession, err := b.DbHelper.GetSessionWithoutUsingPool()
 	if err != nil {
 		return err
 	}

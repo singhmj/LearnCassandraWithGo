@@ -11,22 +11,31 @@ import (
 // CustomPool : This pool implementation is really naive, there's a room for a lot of improvements
 // TODO: Locking consumes too much of cpu cycles, try finding some good way of doing it
 // perhaps look into the mutex implementation and use spin locks, if required
+// and try finding some data structure that would consume less operations and space than ops on a slice
+// TODO: Profiling
 type CustomPool struct {
 	cluster               *gocql.ClusterConfig
 	sessions              []*gocql.Session
 	poolLock              *sync.Mutex
-	connectionsAllocated  int // these are atomic values
-	connectionsToAllocate int // these are atomic values
+	connectionsAllocated  int
+	connectionsToAllocate int
 }
 
 // Init :
 func (selfObject *CustomPool) Init(ip string, keyspace string) {
-	selfObject.cluster = gocql.NewCluster(ip) // "127.0.0.1"
+	selfObject.cluster = gocql.NewCluster(ip)
 	selfObject.cluster.Keyspace = keyspace
 	selfObject.cluster.Consistency = gocql.Quorum
 	selfObject.poolLock = &sync.Mutex{}
 	selfObject.connectionsAllocated = 0
 	selfObject.connectionsToAllocate = 0
+}
+
+// GetPoolSize :
+func (selfObject *CustomPool) GetPoolSize() int {
+	selfObject.poolLock.Lock()
+	defer selfObject.poolLock.Unlock()
+	return selfObject.connectionsToAllocate
 }
 
 // IncreasePoolSize :
@@ -41,8 +50,9 @@ func (selfObject *CustomPool) IncreasePoolSize(newPoolSize int) error {
 	return nil
 }
 
-// GetNewSession :
-func (selfObject *CustomPool) GetNewSession() (*gocql.Session, error) {
+// GetSessionWithoutUsingPool :
+func (selfObject *CustomPool) GetSessionWithoutUsingPool() (*gocql.Session, error) {
+	// this lock has been acquired to protect cluster
 	selfObject.poolLock.Lock()
 	defer selfObject.poolLock.Unlock()
 	return CreateSession(selfObject.cluster)
@@ -96,8 +106,8 @@ func (selfObject *CustomPool) Connect(poolSize int) error {
 		if err != nil {
 			return err
 		}
-		selfObject.sessions = append(selfObject.sessions, session)
-		selfObject.connectionsAllocated--
+		selfObject.sessions[i] = session
+		selfObject.connectionsAllocated++
 	}
 	return nil
 }
