@@ -3,7 +3,6 @@ package db
 import (
 	"fmt"
 	"log"
-	"sync"
 	"testing"
 
 	"github.com/gocql/gocql"
@@ -43,18 +42,12 @@ func InitConnection(ip string, keyspace string) *gocql.Session {
 
 func BenchmarkSingularConnectionInSerializedSystem(b *testing.B) {
 	session := InitConnection("127.0.0.1", "blog")
-	cleanTable(session)
 
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// lock before using the session
-		//
-		// use the session by executing a simple query
 		if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
 			log.Fatal(err)
 		}
-		// fmt.Println("New session: ", individualSession)
-		// unlock after using the session
 	}
 	b.StopTimer()
 }
@@ -62,12 +55,8 @@ func BenchmarkSingularConnectionInSerializedSystem(b *testing.B) {
 func BenchmarkGetObjectFromCustomPoolInSerializedSystem(b *testing.B) {
 	customPool := InitCustomPool("127.0.0.1", "blog")
 	defer customPool.Disconnect()
-	session, _ := customPool.GetSessionFromPool()
-	cleanTable(session)
-	customPool.ReturnSessionToPool(session)
 
-	b.StartTimer()
-
+	b.ResetTimer()
 	// start benchmarking timer
 	for i := 0; i < b.N; i++ {
 		session, err := customPool.GetSessionFromPool()
@@ -83,6 +72,25 @@ func BenchmarkGetObjectFromCustomPoolInSerializedSystem(b *testing.B) {
 	b.StopTimer()
 }
 
+func BenchmarkGetObjectFromCustomPoolWithChannelsInSerializedSystem(b *testing.B) {
+	customPoolWithChannels := InitCustomPoolWithChannels("127.0.0.1", "blog")
+	defer customPoolWithChannels.Disconnect()
+	// start benchmarking timer
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		session, err := customPoolWithChannels.GetSessionFromPool()
+		if err != nil {
+			log.Fatal("Could not extract session from database")
+		}
+		if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+			log.Fatal(err)
+		}
+		customPoolWithChannels.ReturnSessionToPool(session)
+	}
+	// end benchmarking timer
+	b.StopTimer()
+}
+
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 // ------------------ CONCURRENT SYSTEM -----------------
@@ -91,56 +99,38 @@ func BenchmarkGetObjectFromCustomPoolInSerializedSystem(b *testing.B) {
 func BenchmarkSingularConnectionInConcurrentSystem(b *testing.B) {
 	session := InitConnection("127.0.0.1", "blog")
 	defer session.Close()
-	cleanTable(session)
-
-	var wg sync.WaitGroup
-
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		wg.Add(1)
-		// lock before using the session
-		// use the session by executing a simple query
-		go func() {
-			defer wg.Done()
-			if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		var counter int
+		for pb.Next() {
+			if err := session.Query(`SELECT counter FROM blog.query_counter`).
+				Scan(&counter); err != nil {
 				log.Fatal(err)
 			}
-			// fmt.Println("New session: ", individualSession)
-			// unlock after using the session
-		}()
-	}
-
-	wg.Wait()
+		}
+	})
 	b.StopTimer()
 }
 
 func BenchmarkGetObjectFromCustomPoolInConcurrentSystem(b *testing.B) {
 	customPool := InitCustomPool("127.0.0.1", "blog")
 	defer customPool.Disconnect()
-	session, _ := customPool.GetSessionFromPool()
-	cleanTable(session)
-	customPool.ReturnSessionToPool(session)
 
-	var wg sync.WaitGroup
-
-	b.StartTimer()
-	// start benchmarking timer
-	for i := 0; i < b.N; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		var counter int
+		for pb.Next() {
 			session, err := customPool.GetSessionFromPool()
 			if err != nil {
 				b.Error("Could not extract session from database")
 			}
-			// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-			// 	b.Error(err)
-			// }
+			if err := session.Query(`SELECT counter FROM blog.query_counter`).
+				Scan(&counter); err != nil {
+				log.Fatal(err)
+			}
 			customPool.ReturnSessionToPool(session)
-		}()
-	}
-
-	wg.Wait()
+		}
+	})
 	b.StopTimer()
 	// end benchmarking timer
 }
@@ -148,34 +138,25 @@ func BenchmarkGetObjectFromCustomPoolInConcurrentSystem(b *testing.B) {
 func BenchmarkGetObjectFromCustomPoolWithChannelsInConcurrentSystem(b *testing.B) {
 	customPoolWithChannels := InitCustomPoolWithChannels("127.0.0.1", "blog")
 	defer customPoolWithChannels.Disconnect()
-	session, _ := customPoolWithChannels.GetSessionFromPool()
-	cleanTable(session)
-	customPoolWithChannels.ReturnSessionToPool(session)
 
-	var wg sync.WaitGroup
+	// var wg sync.WaitGroup
 
-	b.StartTimer()
-	// start benchmarking timer
-	for i := 0; i < b.N; i++ {
-		// fmt.Printf("Spawning new go routine. Number: %d", i)
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			// fmt.Println("something in here")
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		var counter int
+		for pb.Next() {
 			session, err := customPoolWithChannels.GetSessionFromPool()
-			// fmt.Println("Pool size after getting session from pool: ", customPoolWithChannels.GetPoolSize())
 			if err != nil {
 				b.Error("Db Session failed")
 				return
 			}
-			// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-			// 	b.Error(err)
-			// }
+			if err := session.Query(`SELECT counter FROM blog.query_counter`).
+				Scan(&counter); err != nil {
+				log.Fatal(err)
+			}
 			customPoolWithChannels.ReturnSessionToPool(session)
-		}()
-	}
-
-	wg.Wait()
+		}
+	})
 	b.StopTimer()
 	// end benchmarking timer
 }
