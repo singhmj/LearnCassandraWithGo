@@ -48,10 +48,11 @@ func BenchmarkSingularConnectionInSerializedSystem(b *testing.B) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		// lock before using the session
+		//
 		// use the session by executing a simple query
-		// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-		// 	log.Fatal(err)
-		// }
+		if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+			log.Fatal(err)
+		}
 		// fmt.Println("New session: ", individualSession)
 		// unlock after using the session
 	}
@@ -73,9 +74,9 @@ func BenchmarkGetObjectFromCustomPoolInSerializedSystem(b *testing.B) {
 		if err != nil {
 			log.Fatal("Could not extract session from database")
 		}
-		// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-		// 	log.Fatal(err)
-		// }
+		if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+			log.Fatal(err)
+		}
 		customPool.ReturnSessionToPool(session)
 	}
 	// end benchmarking timer
@@ -125,13 +126,13 @@ func BenchmarkGetObjectFromCustomPoolInConcurrentSystem(b *testing.B) {
 	b.StartTimer()
 	// start benchmarking timer
 	for i := 0; i < b.N; i++ {
-		session, err := customPool.GetSessionFromPool()
-		if err != nil {
-			b.Error("Could not extract session from database")
-		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			session, err := customPool.GetSessionFromPool()
+			if err != nil {
+				b.Error("Could not extract session from database")
+			}
 			// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
 			// 	b.Error(err)
 			// }
@@ -165,6 +166,7 @@ func BenchmarkGetObjectFromCustomPoolWithChannelsInConcurrentSystem(b *testing.B
 			// fmt.Println("Pool size after getting session from pool: ", customPoolWithChannels.GetPoolSize())
 			if err != nil {
 				b.Error("Db Session failed")
+				return
 			}
 			// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
 			// 	b.Error(err)
