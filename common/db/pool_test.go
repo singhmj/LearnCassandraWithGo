@@ -18,15 +18,15 @@ func cleanTable(session *gocql.Session) {
 }
 
 func InitCustomPool(ip string, keyspace string) *CustomPool {
-	return CreatePool("custom", 10, ip, keyspace).(*CustomPool)
+	return CreatePool("custom", 100, ip, keyspace).(*CustomPool)
 }
 
 func InitCustomPoolWithChannels(ip string, keyspace string) *CustomPoolWithChannels {
-	return CreatePool("custom-with-channels", 10, ip, keyspace).(*CustomPoolWithChannels)
+	return CreatePool("custom-with-channels", 100, ip, keyspace).(*CustomPoolWithChannels)
 }
 
 func InitStandardPool(ip string, keyspace string) *StandardPool {
-	return CreatePool("standard", 10, ip, keyspace).(*StandardPool)
+	return CreatePool("standard", 100, ip, keyspace).(*StandardPool)
 }
 
 func InitConnection(ip string, keyspace string) *gocql.Session {
@@ -49,35 +49,12 @@ func BenchmarkSingularConnectionInSerializedSystem(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		// lock before using the session
 		// use the session by executing a simple query
-		if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-			log.Fatal(err)
-		}
+		// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+		// 	log.Fatal(err)
+		// }
 		// fmt.Println("New session: ", individualSession)
 		// unlock after using the session
 	}
-	b.StopTimer()
-}
-
-func BenchmarkGetObjectFromStandardPoolInSerializedSystem(b *testing.B) {
-	standardPool := InitStandardPool("127.0.0.1", "blog")
-	defer standardPool.Disconnect()
-	session, _ := standardPool.GetSessionFromPool()
-	cleanTable(session)
-	standardPool.ReturnSessionToPool(session)
-
-	b.StartTimer()
-	// start benchmarking timer
-	for i := 0; i < b.N; i++ {
-		session, err := standardPool.GetSessionFromPool()
-		if err != nil {
-			log.Fatal("Could not extract session from database")
-		}
-		if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-			log.Fatal(err)
-		}
-		standardPool.ReturnSessionToPool(session)
-	}
-	// end benchmarking timer
 	b.StopTimer()
 }
 
@@ -96,9 +73,9 @@ func BenchmarkGetObjectFromCustomPoolInSerializedSystem(b *testing.B) {
 		if err != nil {
 			log.Fatal("Could not extract session from database")
 		}
-		if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-			log.Fatal(err)
-		}
+		// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+		// 	log.Fatal(err)
+		// }
 		customPool.ReturnSessionToPool(session)
 	}
 	// end benchmarking timer
@@ -136,37 +113,6 @@ func BenchmarkSingularConnectionInConcurrentSystem(b *testing.B) {
 	b.StopTimer()
 }
 
-func BenchmarkGetObjectFromStandardPoolInConcurrentSystem(b *testing.B) {
-	standardPool := InitStandardPool("127.0.0.1", "blog")
-	defer standardPool.Disconnect()
-	session, _ := standardPool.GetSessionFromPool()
-	cleanTable(session)
-	standardPool.ReturnSessionToPool(session)
-
-	var wg sync.WaitGroup
-
-	b.StartTimer()
-	// start benchmarking timer
-	for i := 0; i < b.N; i++ {
-		session, err := standardPool.GetSessionFromPool()
-		if err != nil {
-			log.Fatal("Could not extract session from database")
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-				log.Fatal(err)
-			}
-			standardPool.ReturnSessionToPool(session)
-		}()
-	}
-
-	wg.Wait()
-	b.StopTimer()
-	// end benchmarking timer
-}
-
 func BenchmarkGetObjectFromCustomPoolInConcurrentSystem(b *testing.B) {
 	customPool := InitCustomPool("127.0.0.1", "blog")
 	defer customPool.Disconnect()
@@ -181,14 +127,14 @@ func BenchmarkGetObjectFromCustomPoolInConcurrentSystem(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		session, err := customPool.GetSessionFromPool()
 		if err != nil {
-			log.Fatal("Could not extract session from database")
+			b.Error("Could not extract session from database")
 		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-				log.Fatal(err)
-			}
+			// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+			// 	b.Error(err)
+			// }
 			customPool.ReturnSessionToPool(session)
 		}()
 	}
@@ -210,22 +156,20 @@ func BenchmarkGetObjectFromCustomPoolWithChannelsInConcurrentSystem(b *testing.B
 	b.StartTimer()
 	// start benchmarking timer
 	for i := 0; i < b.N; i++ {
-		fmt.Printf("Spawning new go routine. Number: %d", i)
+		// fmt.Printf("Spawning new go routine. Number: %d", i)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fmt.Println("something in here")
+			// fmt.Println("something in here")
 			session, err := customPoolWithChannels.GetSessionFromPool()
-			fmt.Println("Pool size after getting session from pool: ", customPoolWithChannels.GetPoolSize())
+			// fmt.Println("Pool size after getting session from pool: ", customPoolWithChannels.GetPoolSize())
 			if err != nil {
-				log.Fatal("Could not extract session from database")
+				b.Error("Db Session failed")
 			}
-			if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
-				log.Fatal(err)
-			}
+			// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+			// 	b.Error(err)
+			// }
 			customPoolWithChannels.ReturnSessionToPool(session)
-
-			fmt.Println("Pool size after returning back: ", customPoolWithChannels.GetPoolSize())
 		}()
 	}
 
@@ -233,3 +177,57 @@ func BenchmarkGetObjectFromCustomPoolWithChannelsInConcurrentSystem(b *testing.B
 	b.StopTimer()
 	// end benchmarking timer
 }
+
+// func BenchmarkGetObjectFromStandardPoolInSerializedSystem(b *testing.B) {
+// 	standardPool := InitStandardPool("127.0.0.1", "blog")
+// 	defer standardPool.Disconnect()
+// 	session, _ := standardPool.GetSessionFromPool()
+// 	cleanTable(session)
+// 	standardPool.ReturnSessionToPool(session)
+
+// 	b.StartTimer()
+// 	// start benchmarking timer
+// 	for i := 0; i < b.N; i++ {
+// 		session, err := standardPool.GetSessionFromPool()
+// 		if err != nil {
+// 			log.Fatal("Could not extract session from database")
+// 		}
+// 		// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+// 		// 	log.Fatal(err)
+// 		// }
+// 		standardPool.ReturnSessionToPool(session)
+// 	}
+// 	// end benchmarking timer
+// 	b.StopTimer()
+// }
+
+// func BenchmarkGetObjectFromStandardPoolInConcurrentSystem(b *testing.B) {
+// 	standardPool := InitStandardPool("127.0.0.1", "blog")
+// 	defer standardPool.Disconnect()
+// 	session, _ := standardPool.GetSessionFromPool()
+// 	cleanTable(session)
+// 	standardPool.ReturnSessionToPool(session)
+
+// 	var wg sync.WaitGroup
+
+// 	b.StartTimer()
+// 	// start benchmarking timer
+// 	for i := 0; i < b.N; i++ {
+// 		session, err := standardPool.GetSessionFromPool()
+// 		if err != nil {
+// 			b.Error("Could not extract session from database")
+// 		}
+// 		wg.Add(1)
+// 		go func() {
+// 			defer wg.Done()
+// 			// if err := session.Query(`INSERT INTO blog.query_counter (counter) VALUES (?)`, i).Exec(); err != nil {
+// 			// 	b.Error(err)
+// 			// }
+// 			standardPool.ReturnSessionToPool(session)
+// 		}()
+// 	}
+
+// 	wg.Wait()
+// 	b.StopTimer()
+// 	// end benchmarking timer
+// }

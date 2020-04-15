@@ -14,10 +14,10 @@ import (
 // TODO: Add function to resize the pool if required
 // TODO: Add function to query the allocated pool size
 type StandardPool struct {
-	cluster               *gocql.ClusterConfig
-	sessionPool           *sync.Pool
-	connectionsAllocated  int
-	connectionsToAllocate int
+	cluster     *gocql.ClusterConfig
+	sessionPool *sync.Pool
+	// connectionsAllocated  int
+	// connectionsToAllocate int
 }
 
 // Init :
@@ -32,37 +32,37 @@ func (selfObject *StandardPool) Init(ip string, keyspace string) {
 			// if the the requried number of connections have already been allocated
 			// then don't created any new connection
 			// this behaviour is required where connections should be made in restrictive manner
-			fmt.Printf("Creating a new session in the pool. Total ConnectionsAllocated: %v, ConnectionsToAllocate: %v", selfObject.connectionsAllocated, selfObject.connectionsToAllocate)
-			if selfObject.connectionsAllocated > selfObject.connectionsToAllocate {
-				return nil
-			}
+			// fmt.Printf("Creating a new session in the pool. Total ConnectionsAllocated: %v, ConnectionsToAllocate: %v", selfObject.connectionsAllocated, selfObject.connectionsToAllocate)
+			// if selfObject.connectionsAllocated > selfObject.connectionsToAllocate {
+			// 	return nil
+			// }
 
 			session, err := CreateSession(cluster)
 			if err != nil {
-				return err
+				return nil
 			}
 			// REVIEW:!!!!!!!!!
 			// WARNING: THIS CAN CAUSE DATA RACE
 			// INSTEAD USE SOME (LOW LATENCY) ATOMIC VARIABLE
-			selfObject.connectionsAllocated++
+			// selfObject.connectionsAllocated++
 			return session
 		},
 	}
 }
 
 // GetPoolSize :
-func (selfObject *StandardPool) GetPoolSize() int {
-	return selfObject.connectionsAllocated
-}
+// func (selfObject *StandardPool) GetPoolSize() int {
+// 	return selfObject.connectionsAllocated
+// }
 
 // IncreasePoolSize :
-func (selfObject *StandardPool) IncreasePoolSize(newPoolSize int) error {
-	if newPoolSize < selfObject.connectionsAllocated {
-		return errors.New("you cannot scale down the database pool")
-	}
-	selfObject.connectionsToAllocate++
-	return nil
-}
+// func (selfObject *StandardPool) IncreasePoolSize(newPoolSize int) error {
+// 	if newPoolSize < selfObject.connectionsAllocated {
+// 		return errors.New("you cannot scale down the database pool")
+// 	}
+// 	selfObject.connectionsToAllocate++
+// 	return nil
+// }
 
 // GetSessionWithoutUsingPool :
 func (selfObject *StandardPool) GetSessionWithoutUsingPool() (*gocql.Session, error) {
@@ -72,7 +72,7 @@ func (selfObject *StandardPool) GetSessionWithoutUsingPool() (*gocql.Session, er
 
 // Connect :
 func (selfObject *StandardPool) Connect(poolSize int) error {
-	selfObject.connectionsToAllocate = poolSize
+	// selfObject.connectionsToAllocate = poolSize
 	for i := 0; i < poolSize; i++ {
 		session := selfObject.sessionPool.New()
 		if session == nil {
@@ -101,10 +101,10 @@ func (selfObject *StandardPool) ReturnSessionToPool(session *gocql.Session) {
 // Disconnect :
 func (selfObject *StandardPool) Disconnect() {
 	// get sessions from pool one by one
-	for i := 0; i < selfObject.connectionsAllocated; i++ {
-		session := selfObject.sessionPool.Get()
-		selfObject.ReturnSessionToPool(session.(*gocql.Session))
-	}
+	// for i := 0; i < selfObject.connectionsAllocated; i++ {
+	// 	session := selfObject.sessionPool.Get()
+	// 	selfObject.ReturnSessionToPool(session.(*gocql.Session))
+	// }
 	// and call disconnect on them
 	// then return them back to the pool
 }

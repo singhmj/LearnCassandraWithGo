@@ -72,7 +72,7 @@ func (selfObject *CustomPool) GetSessionFromPool() (*gocql.Session, error) {
 			return nil, errors.New("Pool doesn't have any session to return")
 		}
 
-		fmt.Println("Pool doesn't have any sessions in it. Going to create a new session in the pool.")
+		// fmt.Println("Pool doesn't have any sessions in it. Going to create a new session in the pool.")
 		session, err := CreateSession(selfObject.cluster)
 		if err != nil {
 			return nil, fmt.Errorf("failed to created a new session. more info: %v", err)
